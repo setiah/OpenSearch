@@ -6,7 +6,7 @@
  * compatible open source license.
  */
 
-package org.opensearch.security;
+package org.opensearch.inbuiltsecurity;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -32,8 +32,8 @@ import org.opensearch.index.shard.IndexSettingProvider;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.script.ScriptService;
-import org.opensearch.security.impl.DefaultSecurityModuleImpl;
-import org.opensearch.security.spi.SecurityModule;
+import org.opensearch.inbuiltsecurity.impl.DefaultSecurityModuleImpl;
+import org.opensearch.inbuiltsecurity.spi.SecurityModule;
 import org.opensearch.threadpool.ExecutorBuilder;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.watcher.ResourceWatcherService;

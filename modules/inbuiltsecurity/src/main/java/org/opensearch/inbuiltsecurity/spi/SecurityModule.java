@@ -6,7 +6,7 @@
  * compatible open source license.
  */
 
-package org.opensearch.security.spi;
+package org.opensearch.inbuiltsecurity.spi;
 
 import org.opensearch.plugins.Plugin;
 

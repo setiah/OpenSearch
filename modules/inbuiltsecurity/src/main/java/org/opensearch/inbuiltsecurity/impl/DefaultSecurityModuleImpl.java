@@ -6,11 +6,11 @@
  * compatible open source license.
  */
 
-package org.opensearch.security.impl;
+package org.opensearch.inbuiltsecurity.impl;
 
 import org.opensearch.plugins.ClusterPlugin;
 import org.opensearch.plugins.MapperPlugin;
-import org.opensearch.security.spi.SecurityModule;
+import org.opensearch.inbuiltsecurity.spi.SecurityModule;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;

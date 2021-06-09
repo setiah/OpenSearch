@@ -11,7 +11,7 @@ repositories {
 
 opensearchplugin {
   description 'Security module'
-  classname 'org.opensearch.security.SecurityProvider'
+  classname 'org.opensearch.inbuiltsecurity.SecurityProvider'
 }
 
 //TODO

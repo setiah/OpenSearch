@@ -6,4 +6,4 @@
 # compatible open source license.
 #
 
-org.opensearch.security.impl.DefaultSecurityModuleImpl
+org.opensearch.inbuiltsecurity.impl.DefaultSecurityModuleImpl
