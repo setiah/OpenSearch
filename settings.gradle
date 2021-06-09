@@ -131,4 +131,7 @@ if (extraProjects.exists()) {
     addSubProjects('', extraProjectDir)
   }
 }
+include 'modules:security'
+findProject(':modules:security')?.name = 'security'
+include 'helloworld2'
 
