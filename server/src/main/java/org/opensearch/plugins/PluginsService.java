@@ -134,6 +134,7 @@ public class PluginsService implements ReportingService<PluginsAndModules> {
         final List<String> pluginsNames = new ArrayList<>();
         // first we load plugins that are on the classpath. this is for tests and transport clients
         for (Class<? extends Plugin> pluginClass : classpathPlugins) {
+            logger.info("Debugg: classpath plugins - " + pluginClass.getName());
             Plugin plugin = loadPlugin(pluginClass, settings, configPath);
             PluginInfo pluginInfo = new PluginInfo(pluginClass.getName(), "classpath plugin", "NA", Version.CURRENT, "1.8",
                                                    pluginClass.getName(), Collections.emptyList(), false);
@@ -150,8 +151,10 @@ public class PluginsService implements ReportingService<PluginsAndModules> {
         // load modules
         if (modulesDirectory != null) {
             try {
+                logger.info("Debugg: modulesDirectory - " + modulesDirectory.toString());
                 Set<Bundle> modules = getModuleBundles(modulesDirectory);
                 for (Bundle bundle : modules) {
+                    logger.info("Debugg: " + bundle.plugin.getClassname());
                     modulesList.add(bundle.plugin);
                 }
                 seenBundles.addAll(modules);
@@ -168,6 +171,7 @@ public class PluginsService implements ReportingService<PluginsAndModules> {
                     checkForFailedPluginRemovals(pluginsDirectory);
                     Set<Bundle> plugins = getPluginBundles(pluginsDirectory);
                     for (final Bundle bundle : plugins) {
+                        logger.info("Debugg: plugin - " + bundle.plugin.getName());
                         pluginsList.add(bundle.plugin);
                         pluginsNames.add(bundle.plugin.getName());
                     }
@@ -486,6 +490,7 @@ public class PluginsService implements ReportingService<PluginsAndModules> {
         Map<String, Plugin> loaded = new HashMap<>();
         Map<String, Set<URL>> transitiveUrls = new HashMap<>();
         List<Bundle> sortedBundles = sortBundles(bundles);
+        logger.info("Debugg: Loading bundles - " + bundles.toString());
         for (Bundle bundle : sortedBundles) {
             checkBundleJarHell(JarHell.parseClassPath(), bundle, transitiveUrls);
 
@@ -637,6 +642,7 @@ public class PluginsService implements ReportingService<PluginsAndModules> {
         // collect loaders of extended plugins
         List<ClassLoader> extendedLoaders = new ArrayList<>();
         for (String extendedPluginName : bundle.plugin.getExtendedPlugins()) {
+            logger.info("Debugg: extended plugin - " + extendedPluginName);
             Plugin extendedPlugin = loaded.get(extendedPluginName);
             assert extendedPlugin != null;
             if (ExtensiblePlugin.class.isInstance(extendedPlugin) == false) {
@@ -657,6 +663,9 @@ public class PluginsService implements ReportingService<PluginsAndModules> {
             // Set context class loader to plugin's class loader so that plugins
             // that have dependencies with their own SPI endpoints have a chance to load
             // and initialize them appropriately.
+            logger.info("Debugg: Setting Extended class loader = " + cl.toString());
+            logger.info("Debugg: loader class = " + loader.toString());
+
             AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
                 Thread.currentThread().setContextClassLoader(loader);
                 return null;
@@ -720,6 +729,7 @@ public class PluginsService implements ReportingService<PluginsAndModules> {
             throw new IllegalStateException(signatureMessage(pluginClass));
         }
 
+        logger.info("Debugg: loading pluginClass - " + pluginClass.getName());
         final Class[] parameterTypes = constructor.getParameterTypes();
         try {
             if (constructor.getParameterCount() == 2 && parameterTypes[0] == Settings.class && parameterTypes[1] == Path.class) {

@@ -29,6 +29,7 @@ import org.opensearch.env.Environment;
 import org.opensearch.env.NodeEnvironment;
 import org.opensearch.index.IndexModule;
 import org.opensearch.index.shard.IndexSettingProvider;
+import org.opensearch.plugins.ExtensiblePlugin;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.script.ScriptService;
@@ -60,7 +61,7 @@ import java.util.function.UnaryOperator;
  * 1. impl classes load ~~before~~ after this class as SPI does lazy loading.
  *
  */
-public class SecurityProvider extends Plugin {
+public class SecurityProvider extends Plugin implements ExtensiblePlugin {
 
     private final ServiceLoader<SecurityModule> loader;
     private SecurityModule securityModuleImpl = null;
@@ -73,7 +74,7 @@ public class SecurityProvider extends Plugin {
         while (securityModuleIterator.hasNext()) {
             SecurityModule sm = securityModuleIterator.next();
             logger.info("Detected SecurityModule implementation - " + sm.getClass().getName());
-            logger.info("DefaultSecurityModuleImpl name = " + DefaultSecurityModuleImpl.class.getName());
+//            logger.info("DefaultSecurityModuleImpl name = " + DefaultSecurityModuleImpl.class.getName());
             if(null == securityModuleImpl || !sm.getClass().getName().equals(DefaultSecurityModuleImpl.class.getName())) {
                 securityModuleImpl = sm;
             }

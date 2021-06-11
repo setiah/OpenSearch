@@ -10,7 +10,8 @@ repositories {
 }
 
 opensearchplugin {
-  description 'Security module'
+  name 'inbuiltsecurity'
+  description 'Inbuilt Security module'
   classname 'org.opensearch.inbuiltsecurity.SecurityProvider'
 }
 
