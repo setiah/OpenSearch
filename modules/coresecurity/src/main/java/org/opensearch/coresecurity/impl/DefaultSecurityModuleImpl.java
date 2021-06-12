@@ -6,7 +6,7 @@
  * compatible open source license.
  */
 
-package org.opensearch.inbuiltsecurity.impl;
+package org.opensearch.coresecurity.impl;
 
 import org.opensearch.plugins.ClusterPlugin;
 import org.opensearch.plugins.MapperPlugin;

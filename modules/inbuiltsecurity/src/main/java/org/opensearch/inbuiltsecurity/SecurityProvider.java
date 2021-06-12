@@ -33,7 +33,6 @@ import org.opensearch.plugins.ExtensiblePlugin;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.script.ScriptService;
-import org.opensearch.inbuiltsecurity.impl.DefaultSecurityModuleImpl;
 import org.opensearch.inbuiltsecurity.spi.SecurityModule;
 import org.opensearch.threadpool.ExecutorBuilder;
 import org.opensearch.threadpool.ThreadPool;
@@ -41,11 +40,9 @@ import org.opensearch.watcher.ResourceWatcherService;
 
 import java.io.IOException;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
@@ -63,20 +60,36 @@ import java.util.function.UnaryOperator;
  */
 public class SecurityProvider extends Plugin implements ExtensiblePlugin {
 
-    private final ServiceLoader<SecurityModule> loader;
+//    private final ServiceLoader<SecurityModule> loader;
     private SecurityModule securityModuleImpl = null;
     private static final Logger logger = LogManager.getLogger(SecurityProvider.class);
 
     public SecurityProvider() {
-        logger.info("SecurityProvider initializing and loading implementations...");
-        loader = ServiceLoader.load(SecurityModule.class);
-        Iterator<SecurityModule> securityModuleIterator = loader.iterator();
-        while (securityModuleIterator.hasNext()) {
-            SecurityModule sm = securityModuleIterator.next();
-            logger.info("Detected SecurityModule implementation - " + sm.getClass().getName());
-//            logger.info("DefaultSecurityModuleImpl name = " + DefaultSecurityModuleImpl.class.getName());
-            if(null == securityModuleImpl || !sm.getClass().getName().equals(DefaultSecurityModuleImpl.class.getName())) {
-                securityModuleImpl = sm;
+        logger.info("Initializing SecurityProvider");
+//        loader = ServiceLoader.load(SecurityModule.class);
+//        Iterator<SecurityModule> securityModuleIterator = loader.iterator();
+//        while (securityModuleIterator.hasNext()) {
+//            SecurityModule sm = securityModuleIterator.next();
+//            logger.info("Detected SecurityModule implementation - " + sm.getClass().getName());
+//            if(null == securityModuleImpl || !sm.getClass().getName().equals(DefaultSecurityModuleImpl.class.getName())) {
+//                securityModuleImpl = sm;
+//            }
+//        }
+    }
+
+    @Override
+    public void loadExtensions(ExtensionLoader loader) {
+        for (SecurityModule extension: loader.loadExtensions(SecurityModule.class)) {
+            logger.info("Reading SecurityModule extension " + extension.getClass().getSimpleName());
+
+            if(null == securityModuleImpl) {
+                securityModuleImpl = extension;
+                logger.info("Loading SecurityModule with " + extension.getClass().getSimpleName());
+            }
+
+            if(!extension.getClass().getSimpleName().equals("DefaultSecurityModuleImpl")) {
+                securityModuleImpl = extension;
+                logger.info("Overriding SecurityModule with " + extension.getClass().getSimpleName());
             }
         }
     }

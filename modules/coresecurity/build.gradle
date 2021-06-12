@@ -1,0 +1,24 @@
+plugins {
+    id 'java'
+}
+
+group 'org.opensearch.plugin'
+version '1.0.0-rc1'
+
+repositories {
+    mavenCentral()
+}
+
+opensearchplugin {
+  name 'coresecurity'
+  description 'Core Security module'
+  classname 'org.opensearch.coresecurity.impl.DefaultSecurityModuleImpl'
+  extendedPlugins = ['inbuiltsecurity']
+}
+
+// TODO explore what's api
+dependencies {
+  compileOnly project(':modules:inbuiltsecurity')
+}
+
+missingJavadoc.enabled = false

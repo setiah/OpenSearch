@@ -136,4 +136,5 @@ findProject(':modules:inbuiltsecurity')?.name = 'inbuiltsecurity'
 include 'helloworld2'
 include 'customsecurity'
 //findProject(':modules:inbuiltsecurity')?.name = 'customsecurity'
+include 'coresecurity'
 
