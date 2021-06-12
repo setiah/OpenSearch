@@ -82,12 +82,20 @@ public class SecurityProvider extends Plugin implements ExtensiblePlugin {
         for (SecurityModule extension: loader.loadExtensions(SecurityModule.class)) {
             logger.info("Reading SecurityModule extension " + extension.getClass().getSimpleName());
 
+            /**
+             * Hacks for overriding default extension with OpenSearchSecurityPlugin if available
+             */
             if(null == securityModuleImpl) {
                 securityModuleImpl = extension;
                 logger.info("Loading SecurityModule with " + extension.getClass().getSimpleName());
             }
 
             if(!extension.getClass().getSimpleName().equals("DefaultSecurityModuleImpl")) {
+                securityModuleImpl = extension;
+                logger.info("Overriding SecurityModule with " + extension.getClass().getSimpleName());
+            }
+
+            if(extension.getClass().getSimpleName().equals("OpenSearchSecurityPlugin")) {
                 securityModuleImpl = extension;
                 logger.info("Overriding SecurityModule with " + extension.getClass().getSimpleName());
             }
