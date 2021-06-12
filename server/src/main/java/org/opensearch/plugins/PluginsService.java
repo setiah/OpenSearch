@@ -150,10 +150,8 @@ public class PluginsService implements ReportingService<PluginsAndModules> {
         // load modules
         if (modulesDirectory != null) {
             try {
-                logger.info("Debugg: modulesDirectory - " + modulesDirectory.toString());
                 Set<Bundle> modules = getModuleBundles(modulesDirectory);
                 for (Bundle bundle : modules) {
-                    logger.info("Debugg: Adding module bundle to moduleList - " + bundle.plugin.getClassname());
                     modulesList.add(bundle.plugin);
                 }
                 seenBundles.addAll(modules);
@@ -165,13 +163,11 @@ public class PluginsService implements ReportingService<PluginsAndModules> {
         // now, find all the ones that are in plugins/
         if (pluginsDirectory != null) {
             try {
-                logger.info("Debugg: pluginsDirectory - " + modulesDirectory.toString());
                 // TODO: remove this leniency, but tests bogusly rely on it
                 if (isAccessibleDirectory(pluginsDirectory, logger)) {
                     checkForFailedPluginRemovals(pluginsDirectory);
                     Set<Bundle> plugins = getPluginBundles(pluginsDirectory);
                     for (final Bundle bundle : plugins) {
-                        logger.info("Debugg: Adding plugin bundle to pluginsList - " + bundle.plugin.getName());
                         pluginsList.add(bundle.plugin);
                         pluginsNames.add(bundle.plugin.getName());
                     }
@@ -490,9 +486,7 @@ public class PluginsService implements ReportingService<PluginsAndModules> {
         Map<String, Plugin> loaded = new HashMap<>();
         Map<String, Set<URL>> transitiveUrls = new HashMap<>();
         List<Bundle> sortedBundles = sortBundles(bundles);
-        logger.info("Debugg: Loading bundles for - " + bundles.toString());
         for (Bundle bundle: bundles) {
-            logger.info("Debugg: Loading bundle - " + bundle.plugin.getName());
         }
 
         for (Bundle bundle : sortedBundles) {
@@ -513,17 +507,15 @@ public class PluginsService implements ReportingService<PluginsAndModules> {
             .collect(Collectors.groupingBy(Tuple::v1, Collectors.mapping(Tuple::v2, Collectors.toList())));
         for (Tuple<PluginInfo, Plugin> pluginTuple : plugins) {
             if (pluginTuple.v2() instanceof ExtensiblePlugin) {
-                logger.info("Debugg: is instance of Extensible plugin");
                 loadExtensionsForPlugin((ExtensiblePlugin) pluginTuple.v2(),
                     extendingPluginsByName.getOrDefault(pluginTuple.v1().getName(), Collections.emptyList()));
             } else {
-                logger.info("Debugg: is NOT instance of Extensible plugin");
             }
         }
     }
 
     private static void loadExtensionsForPlugin(ExtensiblePlugin extensiblePlugin, List<Plugin> extendingPlugins) {
-        logger.info(String.format("Debugg: Loading extension for %s plugin", extendingPlugins.toString()));
+        logger.info(String.format("DebugMe: Loading extension for %s plugin", extendingPlugins.toString()));
         ExtensiblePlugin.ExtensionLoader extensionLoader = new ExtensiblePlugin.ExtensionLoader() {
             @Override
             public <T> List<T> loadExtensions(Class<T> extensionPointType) {
@@ -539,13 +531,12 @@ public class PluginsService implements ReportingService<PluginsAndModules> {
     }
 
     private static <T> List<? extends T> createExtensions(Class<T> extensionPointType, Plugin plugin) {
-        logger.info("Debugg: createExtensions for - " + plugin.getClass().getSimpleName());
-        logger.info("Debugg: getClassLoader for " + plugin.getClass().getSimpleName() + " = " + plugin.getClass().getClassLoader());
+        logger.info("DebugMe: createExtensions for - " + plugin.getClass().getSimpleName());
         SPIClassIterator<T> classIterator = SPIClassIterator.get(extensionPointType, plugin.getClass().getClassLoader());
         List<T> extensions = new ArrayList<>();
         while (classIterator.hasNext()) {
             Class<? extends T> extensionClass = classIterator.next();
-            logger.info("Debugg: classIterator extensionClass = " + extensionClass.toString());
+            logger.info("DebugMe: classIterator extensionClass = " + extensionClass.toString());
             extensions.add(createExtension(extensionClass, extensionPointType, plugin));
         }
         return extensions;
@@ -554,7 +545,6 @@ public class PluginsService implements ReportingService<PluginsAndModules> {
     // package-private for test visibility
     static <T> T createExtension(Class<? extends T> extensionClass, Class<T> extensionPointType, Plugin plugin) {
         //noinspection unchecked
-        logger.info("Debugg: creating extension for extensionClass = " + extensionClass.toString());
         Constructor<T>[] constructors = (Constructor<T>[]) extensionClass.getConstructors();
         if (constructors.length == 0) {
             throw new IllegalStateException("no public " + extensionConstructorMessage(extensionClass, extensionPointType));
@@ -576,10 +566,8 @@ public class PluginsService implements ReportingService<PluginsAndModules> {
 
         try {
             if (constructor.getParameterCount() == 0) {
-                logger.info("Debugg: constructor, return new instance");
                 return constructor.newInstance();
             } else {
-                logger.info("Debugg: constructor, return new instance-plugin");
                 return constructor.newInstance(plugin);
             }
         } catch (ReflectiveOperationException e) {
@@ -656,7 +644,6 @@ public class PluginsService implements ReportingService<PluginsAndModules> {
         // collect loaders of extended plugins
         List<ClassLoader> extendedLoaders = new ArrayList<>();
         for (String extendedPluginName : bundle.plugin.getExtendedPlugins()) {
-            logger.info("Debugg: extended plugin - " + extendedPluginName);
             Plugin extendedPlugin = loaded.get(extendedPluginName);
             assert extendedPlugin != null;
             if (ExtensiblePlugin.class.isInstance(extendedPlugin) == false) {
@@ -677,9 +664,6 @@ public class PluginsService implements ReportingService<PluginsAndModules> {
             // Set context class loader to plugin's class loader so that plugins
             // that have dependencies with their own SPI endpoints have a chance to load
             // and initialize them appropriately.
-            logger.info("Debugg: Setting Extended class loader = " + cl.toString());
-            logger.info("Debugg: loader class = " + loader.toString());
-
             AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
                 Thread.currentThread().setContextClassLoader(loader);
                 return null;
@@ -743,7 +727,6 @@ public class PluginsService implements ReportingService<PluginsAndModules> {
             throw new IllegalStateException(signatureMessage(pluginClass));
         }
 
-        logger.info("Debugg: loading pluginClass - " + pluginClass.getName());
         final Class[] parameterTypes = constructor.getParameterTypes();
         try {
             if (constructor.getParameterCount() == 2 && parameterTypes[0] == Settings.class && parameterTypes[1] == Path.class) {
