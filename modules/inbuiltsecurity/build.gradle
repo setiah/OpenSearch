@@ -1,0 +1,19 @@
+plugins {
+  id 'java'
+}
+
+group 'org.opensearch.plugin'
+version '1.0.0-rc1'
+
+repositories {
+  mavenCentral()
+}
+
+opensearchplugin {
+  name 'inbuiltsecurity'
+  description 'Inbuilt Security module'
+  classname 'org.opensearch.inbuiltsecurity.InbuiltSecurityModule'
+}
+
+//TODO
+missingJavadoc.enabled = false

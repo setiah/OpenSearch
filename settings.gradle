@@ -131,4 +131,6 @@ if (extraProjects.exists()) {
     addSubProjects('', extraProjectDir)
   }
 }
+include 'modules:inbuiltsecurity'
+findProject(':modules:inbuiltsecurity')?.name = 'inbuiltsecurity'
 
