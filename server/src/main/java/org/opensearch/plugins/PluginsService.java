@@ -170,16 +170,26 @@ public class PluginsService implements ReportingService<PluginsAndModules> {
                     for (final Bundle bundle : plugins) {
                         pluginsList.add(bundle.plugin);
                         pluginsNames.add(bundle.plugin.getName());
+                        logger.info("DebugMe: Adding plugin " + bundle.plugin.getName() + " to seenBundles");
                     }
                     seenBundles.addAll(plugins);
+                    // OpenSearchSecurityPlugin expected here.
                 }
             } catch (IOException ex) {
                 throw new IllegalStateException("Unable to initialize plugins", ex);
             }
         }
 
-        List<Tuple<PluginInfo, Plugin>> loaded = loadBundles(seenBundles);
+        List<Tuple<PluginInfo, Plugin>> loaded = loadBundles(seenBundles, settings, configPath);
         pluginsLoaded.addAll(loaded);
+        logger.info("DebugMe: Iterating over pluginsLoaded");
+        for (Tuple<PluginInfo, Plugin> pluginTuple : loaded) {
+            logger.info(pluginTuple.toString());
+            if(pluginTuple.v2().getClass().getSimpleName().equals("OpenSearchSecurityPlugin")) {
+                logger.info("DebugMe: Removing security plugin after loading extensions");
+                pluginsLoaded.remove(pluginTuple);
+            }
+        }
 
         this.info = new PluginsAndModules(pluginsList, modulesList);
         this.plugins = Collections.unmodifiableList(pluginsLoaded);
@@ -226,13 +236,13 @@ public class PluginsService implements ReportingService<PluginsAndModules> {
         final Settings.Builder builder = Settings.builder();
         for (Tuple<PluginInfo, Plugin> plugin : plugins) {
             Settings settings = plugin.v2().additionalSettings();
-            for (String setting : settings.keySet()) {
-                String oldPlugin = foundSettings.put(setting, plugin.v1().getName());
-                if (oldPlugin != null) {
-                    throw new IllegalArgumentException("Cannot have additional setting [" + setting + "] " +
-                        "in plugin [" + plugin.v1().getName() + "], already added in plugin [" + oldPlugin + "]");
-                }
-            }
+//            for (String setting : settings.keySet()) {
+//                String oldPlugin = foundSettings.put(setting, plugin.v1().getName());
+//                if (oldPlugin != null) {
+//                    throw new IllegalArgumentException("Cannot have additional setting [" + setting + "] " +
+//                        "in plugin [" + plugin.v1().getName() + "], already added in plugin [" + oldPlugin + "]");
+//                }
+//            }
             builder.put(settings);
             final Optional<String> maybeFeature = plugin.v2().getFeature();
             if (maybeFeature.isPresent()) {
@@ -481,47 +491,70 @@ public class PluginsService implements ReportingService<PluginsAndModules> {
         sortedBundles.add(bundle);
     }
 
-    private List<Tuple<PluginInfo,Plugin>> loadBundles(Set<Bundle> bundles) {
+    private List<Tuple<PluginInfo,Plugin>> loadBundles(Set<Bundle> bundles,
+                                                       Settings settings,
+                                                       Path configPath) {
         List<Tuple<PluginInfo, Plugin>> plugins = new ArrayList<>();
         Map<String, Plugin> loaded = new HashMap<>();
         Map<String, Set<URL>> transitiveUrls = new HashMap<>();
         List<Bundle> sortedBundles = sortBundles(bundles);
-        for (Bundle bundle: bundles) {
-        }
 
         for (Bundle bundle : sortedBundles) {
             checkBundleJarHell(JarHell.parseClassPath(), bundle, transitiveUrls);
 
             final Plugin plugin = loadBundle(bundle, loaded);
+            logger.info("DebugMe: Successfully loaded " + plugin.getClass().getSimpleName());
             plugins.add(new Tuple<>(bundle.plugin, plugin));
         }
 
-        loadExtensions(plugins);
+        loadExtensions(plugins, settings, configPath);
         return Collections.unmodifiableList(plugins);
     }
 
     // package-private for test visibility
-    static void loadExtensions(List<Tuple<PluginInfo, Plugin>> plugins) {
+    static void loadExtensions(List<Tuple<PluginInfo, Plugin>> plugins, Settings settings, Path configPath) {
+        Plugin securityPlugin = null;
+        logger.info("DebugMe: Iterating over plugins to find security plugin");
+        for (Tuple<PluginInfo, Plugin> pluginTuple : plugins) {
+            logger.info(String.format("%s - %s", pluginTuple.v1().getClass().getSimpleName(), pluginTuple.v2().getClass().getSimpleName()));
+            if(pluginTuple.v2().getClass().getSimpleName().equals("OpenSearchSecurityPlugin")) {
+                logger.info("DebugMe: Found security plugin");
+                securityPlugin = pluginTuple.v2();
+            }
+        }
+
         Map<String, List<Plugin>> extendingPluginsByName = plugins.stream()
             .flatMap(t -> t.v1().getExtendedPlugins().stream().map(extendedPlugin -> Tuple.tuple(extendedPlugin, t.v2())))
             .collect(Collectors.groupingBy(Tuple::v1, Collectors.mapping(Tuple::v2, Collectors.toList())));
+        logger.info("DebugMe: extendingPluginsByName = " + extendingPluginsByName.toString());
+
         for (Tuple<PluginInfo, Plugin> pluginTuple : plugins) {
             if (pluginTuple.v2() instanceof ExtensiblePlugin) {
+                logger.info("DebugMe: found extensiblePlugin - " + pluginTuple.v2().getClass().getSimpleName());
                 loadExtensionsForPlugin((ExtensiblePlugin) pluginTuple.v2(),
-                    extendingPluginsByName.getOrDefault(pluginTuple.v1().getName(), Collections.emptyList()));
+                    extendingPluginsByName.getOrDefault(pluginTuple.v1().getName(), Collections.emptyList()), settings, configPath, securityPlugin);
             } else {
             }
         }
     }
 
-    private static void loadExtensionsForPlugin(ExtensiblePlugin extensiblePlugin, List<Plugin> extendingPlugins) {
-        logger.info(String.format("DebugMe: Loading extension for %s plugin", extendingPlugins.toString()));
+    private static void loadExtensionsForPlugin(ExtensiblePlugin extensiblePlugin, List<Plugin> extendingPlugins, Settings settings, Path configPath, Plugin securityPlugin) {
+        logger.info(String.format("DebugMe: Loading extensions for %s plugin, extensions - %s", extensiblePlugin.getClass().getSimpleName(), extendingPlugins.toString()));
+        if (extensiblePlugin.getClass().getSimpleName().equals("SecurityProvider")) {
+            logger.info("DebugMe: Using securityPlugin instance");
+        }
+
         ExtensiblePlugin.ExtensionLoader extensionLoader = new ExtensiblePlugin.ExtensionLoader() {
             @Override
             public <T> List<T> loadExtensions(Class<T> extensionPointType) {
                 List<T> result = new ArrayList<>();
                 for (Plugin extendingPlugin : extendingPlugins) {
-                    result.addAll(createExtensions(extensionPointType, extendingPlugin));
+                    if(extendingPlugin.getClass().getSimpleName().equals("OpenSearchSecurityPlugin")) {
+                        logger.info("DebugMe: reusing security plugin instance for " + extensiblePlugin.getClass().getSimpleName());
+                        result.add((T)securityPlugin);
+                    } else {
+                        result.addAll(createExtensions(extensionPointType, extendingPlugin, settings, configPath));
+                    }
                 }
                 return Collections.unmodifiableList(result);
             }
@@ -530,20 +563,24 @@ public class PluginsService implements ReportingService<PluginsAndModules> {
         extensiblePlugin.loadExtensions(extensionLoader);
     }
 
-    private static <T> List<? extends T> createExtensions(Class<T> extensionPointType, Plugin plugin) {
-        logger.info("DebugMe: createExtensions for - " + plugin.getClass().getSimpleName());
+    private static <T> List<? extends T> createExtensions(Class<T> extensionPointType, Plugin plugin, Settings settings, Path configPath) {
+        if(plugin.getClass().getSimpleName().equals("OpenSearchSecurityPlugin")) {
+            logger.info("DebugMe: Skipping createExtensions for OpenSearchSecurityPlugin plugin");
+            return new ArrayList<>();
+        }
+        logger.info("DebugMe: createExtensions for " + extensionPointType.getSimpleName() + " with " + plugin.getClass().getSimpleName());
         SPIClassIterator<T> classIterator = SPIClassIterator.get(extensionPointType, plugin.getClass().getClassLoader());
         List<T> extensions = new ArrayList<>();
         while (classIterator.hasNext()) {
             Class<? extends T> extensionClass = classIterator.next();
             logger.info("DebugMe: classIterator extensionClass = " + extensionClass.toString());
-            extensions.add(createExtension(extensionClass, extensionPointType, plugin));
+            extensions.add(createExtension(extensionClass, extensionPointType, plugin, settings, configPath));
         }
         return extensions;
     }
 
     // package-private for test visibility
-    static <T> T createExtension(Class<? extends T> extensionClass, Class<T> extensionPointType, Plugin plugin) {
+    static <T> T createExtension(Class<? extends T> extensionClass, Class<T> extensionPointType, Plugin plugin, Settings settings, Path configPath) {
         //noinspection unchecked
         Constructor<T>[] constructors = (Constructor<T>[]) extensionClass.getConstructors();
         if (constructors.length == 0) {
@@ -556,7 +593,14 @@ public class PluginsService implements ReportingService<PluginsAndModules> {
 
         final Constructor<T> constructor = constructors[0];
         if (constructor.getParameterCount() > 1) {
-            throw new IllegalStateException(extensionSignatureMessage(extensionClass, extensionPointType, plugin));
+            try {
+                return constructor.newInstance(settings, configPath);
+            } catch (Exception e) {
+                e.printStackTrace();
+                logger.info(e.getMessage());
+                throw new IllegalStateException(e);
+            }
+//            throw new IllegalStateException(extensionSignatureMessage(extensionClass, extensionPointType, plugin));
         }
 
         if (constructor.getParameterCount() == 1 && constructor.getParameterTypes()[0] != plugin.getClass()) {
@@ -638,7 +682,7 @@ public class PluginsService implements ReportingService<PluginsAndModules> {
 
     private Plugin loadBundle(Bundle bundle, Map<String, Plugin> loaded) {
         String name = bundle.plugin.getName();
-
+        logger.info("DebugMe: loadBundle = " + name);
         verifyCompatibility(bundle.plugin);
 
         // collect loaders of extended plugins
@@ -651,6 +695,7 @@ public class PluginsService implements ReportingService<PluginsAndModules> {
             }
             extendedLoaders.add(extendedPlugin.getClass().getClassLoader());
         }
+        logger.info("DebugMe: extendedLoaders for " + name + " = " + extendedLoaders.toString());
 
         // create a child to load the plugin in this bundle
         ClassLoader parentLoader = PluginLoaderIndirection.createLoader(getClass().getClassLoader(), extendedLoaders);
@@ -714,6 +759,13 @@ public class PluginsService implements ReportingService<PluginsAndModules> {
 
     private Plugin loadPlugin(Class<? extends Plugin> pluginClass, Settings settings, Path configPath) {
         final Constructor<?>[] constructors = pluginClass.getConstructors();
+
+        logger.info("DebugMe: Trying to load plugin " + pluginClass.getSimpleName());
+        if(pluginClass.getSimpleName().equals("OpenSearchSecurityPlugin")) {
+            logger.info("DebugMe: loading OpenSearchSecurityPlugin instance in loadPlugin");
+//            return null;
+        }
+
         if (constructors.length == 0) {
             throw new IllegalStateException("no public constructor for [" + pluginClass.getName() + "]");
         }
