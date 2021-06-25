@@ -13,6 +13,7 @@ opensearchplugin {
   name 'inbuiltsecurity'
   description 'Inbuilt Security module'
   classname 'org.opensearch.inbuiltsecurity.InbuiltSecurityModule'
+//  overridesSecurity 'true'
 }
 
 //TODO

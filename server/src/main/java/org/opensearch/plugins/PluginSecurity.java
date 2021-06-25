@@ -81,7 +81,7 @@ class PluginSecurity {
         }
     }
 
-    private static void prompt(final Terminal terminal, final boolean batch) throws UserException {
+    public static void prompt(final Terminal terminal, final boolean batch) throws UserException {
         if (!batch) {
             terminal.println(Verbosity.NORMAL, "");
             String text = terminal.readText("Continue with installation? [y/N]");

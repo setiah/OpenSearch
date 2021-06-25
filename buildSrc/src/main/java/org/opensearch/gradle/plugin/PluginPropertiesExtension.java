@@ -56,6 +56,8 @@ public class PluginPropertiesExtension {
 
     private boolean hasNativeController;
 
+    private boolean overridesSecurity;
+
     /** True if the plugin requires the opensearch keystore to exist, false otherwise. */
     private boolean requiresKeystore;
 
@@ -112,6 +114,10 @@ public class PluginPropertiesExtension {
         return this.extendedPlugins;
     }
 
+    public boolean getOverridesSecurity() {
+        return overridesSecurity;
+    }
+
     public boolean isHasNativeController() {
         return hasNativeController;
     }
@@ -152,6 +158,10 @@ public class PluginPropertiesExtension {
 
     public void setExtendedPlugins(List<String> extendedPlugins) {
         this.extendedPlugins = extendedPlugins;
+    }
+
+    public void setOverridesSecurity(boolean overridesSecurity) {
+        this.overridesSecurity = overridesSecurity;
     }
 
     public boolean isHasClientJar() {

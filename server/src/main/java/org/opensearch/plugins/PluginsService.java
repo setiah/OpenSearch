@@ -58,8 +58,6 @@ import org.opensearch.index.IndexModule;
 import org.opensearch.node.ReportingService;
 import org.opensearch.threadpool.ExecutorBuilder;
 import org.opensearch.transport.TransportSettings;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.lang.reflect.Constructor;
@@ -138,7 +136,7 @@ public class PluginsService implements ReportingService<PluginsAndModules> {
         for (Class<? extends Plugin> pluginClass : classpathPlugins) {
             Plugin plugin = loadPlugin(pluginClass, settings, configPath);
             PluginInfo pluginInfo = new PluginInfo(pluginClass.getName(), "classpath plugin", "NA", Version.CURRENT, "1.8",
-                                                   pluginClass.getName(), Collections.emptyList(), false);
+                                                   pluginClass.getName(), Collections.emptyList(), false, false);
             if (logger.isTraceEnabled()) {
                 logger.trace("plugin loaded from classpath [{}]", pluginInfo);
             }
@@ -646,7 +644,7 @@ public class PluginsService implements ReportingService<PluginsAndModules> {
         Bundle overridingBundle = null;
 
         for(Bundle bundle: bundles) {
-            if(isOverridable(bundle, loaded)) {
+            if(overridesSecurity(bundle)) {
                 if(null == overridingBundle) {
                     overridingBundle = bundle;
                 }
@@ -664,6 +662,10 @@ public class PluginsService implements ReportingService<PluginsAndModules> {
         }
 
         return bundleList;
+    }
+
+    private boolean overridesSecurity(Bundle bundle) {
+        return bundle.plugin.getOverridesSecurity();
     }
 
     private boolean isOverridable(Bundle bundle, Map<String, Plugin> loaded) {
