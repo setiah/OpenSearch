@@ -221,8 +221,11 @@ public class PluginInfo implements Writeable, ToXContentObject {
             extendedPlugins = Arrays.asList(Strings.delimitedListToStringArray(extendedString, ","));
         }
 
+        boolean overridesSecurity = false;
         final String hasOverridesSecurityValue = propsMap.remove("overrides.security");
-        final boolean overridesSecurity = (null == hasOverridesSecurityValue) ? false : true;
+        if(hasOverridesSecurityValue != null && hasOverridesSecurityValue.equals("true")) {
+            overridesSecurity = true;
+        }
 
         final String hasNativeControllerValue = propsMap.remove("has.native.controller");
         final boolean hasNativeController;

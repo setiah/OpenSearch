@@ -178,8 +178,18 @@ public class PluginsService implements ReportingService<PluginsAndModules> {
             }
         }
 
-        List<Tuple<PluginInfo, Plugin>> loaded = loadBundles(seenBundles);
+        Tuple<List<Tuple<PluginInfo,Plugin>>, Bundle> result = loadBundles(seenBundles);
+        List<Tuple<PluginInfo, Plugin>> loaded = result.v1();
+        Bundle skippedBundle = result.v2();
         pluginsLoaded.addAll(loaded);
+
+        if(skippedBundle != null) {
+            if (skippedBundle.isPlugin) {
+                pluginsList.remove(skippedBundle.plugin);
+            } else {
+                modulesList.remove(skippedBundle.plugin);
+            }
+        }
 
         this.info = new PluginsAndModules(pluginsList, modulesList);
         this.plugins = Collections.unmodifiableList(pluginsLoaded);
@@ -487,13 +497,15 @@ public class PluginsService implements ReportingService<PluginsAndModules> {
         sortedBundles.add(bundle);
     }
 
-    private List<Tuple<PluginInfo,Plugin>> loadBundles(Set<Bundle> bundles) {
+    private Tuple<List<Tuple<PluginInfo,Plugin>>, Bundle> loadBundles(Set<Bundle> bundles) {
         List<Tuple<PluginInfo, Plugin>> plugins = new ArrayList<>();
         Map<String, Plugin> loaded = new HashMap<>();
         Map<String, Set<URL>> transitiveUrls = new HashMap<>();
         List<Bundle> sortedBundles = sortBundles(bundles);
 
-        List<Bundle> sortedBundlesToLoad = getBundlesToLoad(sortedBundles, loaded);
+        Tuple<List<Bundle>, Bundle> result = getBundlesToLoad(sortedBundles, loaded);
+        List<Bundle> sortedBundlesToLoad = result.v1();
+        Bundle skippedBundle = result.v2();
 
         for (Bundle bundle : sortedBundlesToLoad) {
             checkBundleJarHell(JarHell.parseClassPath(), bundle, transitiveUrls);
@@ -503,7 +515,7 @@ public class PluginsService implements ReportingService<PluginsAndModules> {
         }
 
         loadExtensions(plugins);
-        return Collections.unmodifiableList(plugins);
+        return new Tuple<>(Collections.unmodifiableList(plugins), skippedBundle);
     }
 
     // package-private for test visibility
@@ -638,18 +650,21 @@ public class PluginsService implements ReportingService<PluginsAndModules> {
         }
     }
 
-    private List<Bundle> getBundlesToLoad(List<Bundle> bundles, Map<String, Plugin> loaded) {
+    private Tuple<List<Bundle>, Bundle> getBundlesToLoad(List<Bundle> bundles, Map<String, Plugin> loaded) {
         logger.info("DebugMe: getBundlesToLoad");
         List<Bundle> bundleList = new ArrayList<>();
         Bundle overridingBundle = null;
+        Bundle skippedBundle = null;
 
         for(Bundle bundle: bundles) {
             if(overridesSecurity(bundle)) {
                 if(null == overridingBundle) {
                     overridingBundle = bundle;
-                }
-                else if(bundle.isPlugin) {
+                } else if(bundle.isPlugin) {
+                    skippedBundle = overridingBundle;
                     overridingBundle = bundle;
+                } else {
+                    skippedBundle = bundle;
                 }
             } else {
                 bundleList.add(bundle);
@@ -661,11 +676,16 @@ public class PluginsService implements ReportingService<PluginsAndModules> {
             bundleList.add(overridingBundle);
         }
 
-        return bundleList;
+
+        return new Tuple<>(bundleList, skippedBundle);
     }
 
     private boolean overridesSecurity(Bundle bundle) {
-        return bundle.plugin.getOverridesSecurity();
+        logger.info("DebugMe: overridesSecurity? classname = " + bundle.plugin.getClassname());
+        if(bundle.plugin.getClassname().equals("org.opensearch.inbuiltsecurity.InbuiltSecurityModule") || bundle.plugin.getOverridesSecurity())
+            return true;
+
+        return false;
     }
 
     private boolean isOverridable(Bundle bundle, Map<String, Plugin> loaded) {
