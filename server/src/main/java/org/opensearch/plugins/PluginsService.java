@@ -136,7 +136,7 @@ public class PluginsService implements ReportingService<PluginsAndModules> {
         for (Class<? extends Plugin> pluginClass : classpathPlugins) {
             Plugin plugin = loadPlugin(pluginClass, settings, configPath);
             PluginInfo pluginInfo = new PluginInfo(pluginClass.getName(), "classpath plugin", "NA", Version.CURRENT, "1.8",
-                                                   pluginClass.getName(), Collections.emptyList(), false);
+                                                   pluginClass.getName(), Collections.emptyList(), false, false);
             if (logger.isTraceEnabled()) {
                 logger.trace("plugin loaded from classpath [{}]", pluginInfo);
             }
@@ -178,8 +178,18 @@ public class PluginsService implements ReportingService<PluginsAndModules> {
             }
         }
 
-        List<Tuple<PluginInfo, Plugin>> loaded = loadBundles(seenBundles);
+        Tuple<List<Tuple<PluginInfo,Plugin>>, Bundle> result = loadBundles(seenBundles);
+        List<Tuple<PluginInfo, Plugin>> loaded = result.v1();
+        Bundle skippedBundle = result.v2();
         pluginsLoaded.addAll(loaded);
+
+        if(skippedBundle != null) {
+            if (skippedBundle.isPlugin) {
+                pluginsList.remove(skippedBundle.plugin);
+            } else {
+                modulesList.remove(skippedBundle.plugin);
+            }
+        }
 
         this.info = new PluginsAndModules(pluginsList, modulesList);
         this.plugins = Collections.unmodifiableList(pluginsLoaded);
@@ -298,6 +308,7 @@ public class PluginsService implements ReportingService<PluginsAndModules> {
     static class Bundle {
         final PluginInfo plugin;
         final Set<URL> urls;
+        boolean isPlugin = false;
 
         Bundle(PluginInfo plugin, Path dir) throws IOException {
             this.plugin = Objects.requireNonNull(plugin);
@@ -426,6 +437,11 @@ public class PluginsService implements ReportingService<PluginsAndModules> {
         if (type.equals("module") && info.getName().startsWith("test-") && Build.CURRENT.isSnapshot() == false) {
             throw new IllegalStateException("external test module [" + plugin.getFileName() + "] found in non-snapshot build");
         }
+
+        if(type.equals("plugin")) {
+            bundle.isPlugin = true;
+        }
+
         return bundle;
     }
 
@@ -481,12 +497,17 @@ public class PluginsService implements ReportingService<PluginsAndModules> {
         sortedBundles.add(bundle);
     }
 
-    private List<Tuple<PluginInfo,Plugin>> loadBundles(Set<Bundle> bundles) {
+    private Tuple<List<Tuple<PluginInfo,Plugin>>, Bundle> loadBundles(Set<Bundle> bundles) {
         List<Tuple<PluginInfo, Plugin>> plugins = new ArrayList<>();
         Map<String, Plugin> loaded = new HashMap<>();
         Map<String, Set<URL>> transitiveUrls = new HashMap<>();
         List<Bundle> sortedBundles = sortBundles(bundles);
-        for (Bundle bundle : sortedBundles) {
+
+        Tuple<List<Bundle>, Bundle> result = getBundlesToLoad(sortedBundles, loaded);
+        List<Bundle> sortedBundlesToLoad = result.v1();
+        Bundle skippedBundle = result.v2();
+
+        for (Bundle bundle : sortedBundlesToLoad) {
             checkBundleJarHell(JarHell.parseClassPath(), bundle, transitiveUrls);
 
             final Plugin plugin = loadBundle(bundle, loaded);
@@ -494,7 +515,7 @@ public class PluginsService implements ReportingService<PluginsAndModules> {
         }
 
         loadExtensions(plugins);
-        return Collections.unmodifiableList(plugins);
+        return new Tuple<>(Collections.unmodifiableList(plugins), skippedBundle);
     }
 
     // package-private for test visibility
@@ -629,6 +650,99 @@ public class PluginsService implements ReportingService<PluginsAndModules> {
         }
     }
 
+    private Tuple<List<Bundle>, Bundle> getBundlesToLoad(List<Bundle> bundles, Map<String, Plugin> loaded) {
+        logger.info("DebugMe: getBundlesToLoad");
+        List<Bundle> bundleList = new ArrayList<>();
+        Bundle overridingBundle = null;
+        Bundle skippedBundle = null;
+
+        for(Bundle bundle: bundles) {
+            if(overridesSecurity(bundle)) {
+                if(null == overridingBundle) {
+                    overridingBundle = bundle;
+                } else if(bundle.isPlugin) {
+                    skippedBundle = overridingBundle;
+                    overridingBundle = bundle;
+                } else {
+                    skippedBundle = bundle;
+                }
+            } else {
+                bundleList.add(bundle);
+            }
+        }
+
+        if(null != overridingBundle) {
+            logger.info("DebugMe: Adding " + overridingBundle.plugin.getName() + " to the list");
+            bundleList.add(overridingBundle);
+        }
+
+
+        return new Tuple<>(bundleList, skippedBundle);
+    }
+
+    private boolean overridesSecurity(Bundle bundle) {
+        logger.info("DebugMe: overridesSecurity? classname = " + bundle.plugin.getClassname());
+        if(bundle.plugin.getClassname().equals("org.opensearch.inbuiltsecurity.InbuiltSecurityModule") || bundle.plugin.getOverridesSecurity())
+            return true;
+
+        return false;
+    }
+
+    private boolean isOverridable(Bundle bundle, Map<String, Plugin> loaded) {
+        String name = bundle.plugin.getName();
+
+        verifyCompatibility(bundle.plugin);
+
+        // collect loaders of extended plugins
+        List<ClassLoader> extendedLoaders = new ArrayList<>();
+//        for (String extendedPluginName : bundle.plugin.getExtendedPlugins()) {
+//            Plugin extendedPlugin = loaded.get(extendedPluginName);
+//            assert extendedPlugin != null;
+//            if (ExtensiblePlugin.class.isInstance(extendedPlugin) == false) {
+//                throw new IllegalStateException("Plugin [" + name + "] cannot extend non-extensible plugin [" + extendedPluginName + "]");
+//            }
+//            extendedLoaders.add(extendedPlugin.getClass().getClassLoader());
+//        }
+
+        // create a child to load the plugin in this bundle
+        ClassLoader parentLoader = PluginLoaderIndirection.createLoader(getClass().getClassLoader(), extendedLoaders);
+        ClassLoader loader = URLClassLoader.newInstance(bundle.urls.toArray(new URL[0]), parentLoader);
+
+        // reload SPI with any new services from the plugin
+        reloadLuceneSPI(loader);
+
+        ClassLoader cl = Thread.currentThread().getContextClassLoader();
+        try {
+            // Set context class loader to plugin's class loader so that plugins
+            // that have dependencies with their own SPI endpoints have a chance to load
+            // and initialize them appropriately.
+            AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
+                Thread.currentThread().setContextClassLoader(loader);
+                return null;
+            });
+
+            Class<? extends Plugin> pluginClass = loadPluginClass(bundle.plugin.getClassname(), loader);
+            if (loader != pluginClass.getClassLoader()) {
+                throw new IllegalStateException("Plugin [" + name + "] must reference a class loader local Plugin class ["
+                    + bundle.plugin.getClassname()
+                    + "] (class loader [" + pluginClass.getClassLoader() + "])");
+            }
+
+            logger.info("DebugMe: Checking if " + bundle.plugin.getClassname() + " comes from OverridablePlugin, class = " + pluginClass);
+            if (OverridablePlugin.class.isAssignableFrom(pluginClass)) {
+                logger.info("DebugMe: " + bundle.plugin.getClass().getSimpleName() + " is derived from OverridablePlugin");
+                return true;
+            }
+
+            return false;
+        } finally {
+            AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
+                Thread.currentThread().setContextClassLoader(cl);
+                return null;
+            });
+        }
+    }
+
     private Plugin loadBundle(Bundle bundle, Map<String, Plugin> loaded) {
         String name = bundle.plugin.getName();
 
@@ -668,6 +782,7 @@ public class PluginsService implements ReportingService<PluginsAndModules> {
                     + bundle.plugin.getClassname()
                     + "] (class loader [" + pluginClass.getClassLoader() + "])");
             }
+
             Plugin plugin = loadPlugin(pluginClass, settings, configPath);
             loaded.put(name, plugin);
             return plugin;

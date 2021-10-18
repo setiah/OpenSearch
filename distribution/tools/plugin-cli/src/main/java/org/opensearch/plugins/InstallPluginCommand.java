@@ -798,6 +798,13 @@ class InstallPluginCommand extends EnvironmentAwareCommand {
         if (info.hasNativeController()) {
             throw new IllegalStateException("plugins can not have native controllers");
         }
+        if(info.getOverridesSecurity()) {
+            terminal.errorPrintln(Terminal.Verbosity.NORMAL, "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+            terminal.errorPrintln(Terminal.Verbosity.NORMAL, "@     WARNING: THIS PLUGIN OVERRIDES SECURITY     @");
+            terminal.errorPrintln(Terminal.Verbosity.NORMAL, "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+            PluginSecurity.prompt(terminal, false);
+        }
+
         PluginsService.verifyCompatibility(info);
 
         // checking for existing version of the plugin

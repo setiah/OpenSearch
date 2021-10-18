@@ -37,7 +37,6 @@ import org.opensearch.action.admin.cluster.node.info.PluginsAndModules;
 import org.opensearch.common.io.stream.ByteBufferStreamInput;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.test.OpenSearchTestCase;
-import org.opensearch.plugins.PluginTestUtil;
 
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
@@ -199,7 +198,7 @@ public class PluginInfoTests extends OpenSearchTestCase {
 
     public void testSerialize() throws Exception {
         PluginInfo info = new PluginInfo("c", "foo", "dummy", Version.CURRENT, "1.8", "dummyclass",
-                                         Collections.singletonList("foo"), randomBoolean());
+                                         Collections.singletonList("foo"), randomBoolean(), );
         BytesStreamOutput output = new BytesStreamOutput();
         info.writeTo(output);
         ByteBuffer buffer = ByteBuffer.wrap(output.bytes().toBytesRef().bytes);
@@ -212,15 +211,15 @@ public class PluginInfoTests extends OpenSearchTestCase {
     public void testPluginListSorted() {
         List<PluginInfo> plugins = new ArrayList<>();
         plugins.add(new PluginInfo("c", "foo", "dummy", Version.CURRENT, "1.8", "dummyclass",
-            Collections.emptyList(), randomBoolean()));
+            Collections.emptyList(), randomBoolean(), ));
         plugins.add(new PluginInfo("b", "foo", "dummy", Version.CURRENT, "1.8", "dummyclass",
-            Collections.emptyList(), randomBoolean()));
+            Collections.emptyList(), randomBoolean(), ));
         plugins.add(new PluginInfo( "e", "foo", "dummy", Version.CURRENT, "1.8", "dummyclass",
-            Collections.emptyList(), randomBoolean()));
+            Collections.emptyList(), randomBoolean(), ));
         plugins.add(new PluginInfo("a", "foo", "dummy", Version.CURRENT, "1.8", "dummyclass",
-            Collections.emptyList(), randomBoolean()));
+            Collections.emptyList(), randomBoolean(), ));
         plugins.add(new PluginInfo("d", "foo", "dummy", Version.CURRENT, "1.8", "dummyclass",
-            Collections.emptyList(), randomBoolean()));
+            Collections.emptyList(), randomBoolean(), ));
         PluginsAndModules pluginsInfo = new PluginsAndModules(plugins, Collections.emptyList());
 
         final List<PluginInfo> infos = pluginsInfo.getPluginInfos();

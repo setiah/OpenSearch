@@ -107,7 +107,8 @@ class PluginBuildPlugin implements Plugin<Project> {
                     'classname'           : extension1.classname,
                     'extendedPlugins'     : extension1.extendedPlugins.join(','),
                     'hasNativeController' : extension1.hasNativeController,
-                    'requiresKeystore'    : extension1.requiresKeystore
+                    'requiresKeystore'    : extension1.requiresKeystore,
+                    'overridesSecurity'   : extension1.overridesSecurity
             ]
             project.tasks.named('pluginProperties').configure {
                 expand(properties)

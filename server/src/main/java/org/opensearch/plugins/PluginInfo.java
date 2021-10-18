@@ -71,10 +71,10 @@ public class PluginInfo implements Writeable, ToXContentObject {
     private final String classname;
     private final List<String> extendedPlugins;
     private final boolean hasNativeController;
+    private final boolean overridesSecurity;
 
     /**
      * Construct plugin info.
-     *
      * @param name                  the name of the plugin
      * @param description           a description of the plugin
      * @param version               an opaque version identifier for the plugin
@@ -83,9 +83,10 @@ public class PluginInfo implements Writeable, ToXContentObject {
      * @param classname             the entry point to the plugin
      * @param extendedPlugins       other plugins this plugin extends through SPI
      * @param hasNativeController   whether or not the plugin has a native controller
+     * @param overridesSecurity     whether or not the plugin overrides default security
      */
     public PluginInfo(String name, String description, String version, Version opensearchVersion, String javaVersion,
-                      String classname, List<String> extendedPlugins, boolean hasNativeController) {
+                      String classname, List<String> extendedPlugins, boolean hasNativeController, boolean overridesSecurity) {
         this.name = name;
         this.description = description;
         this.version = version;
@@ -94,6 +95,7 @@ public class PluginInfo implements Writeable, ToXContentObject {
         this.classname = classname;
         this.extendedPlugins = Collections.unmodifiableList(extendedPlugins);
         this.hasNativeController = hasNativeController;
+        this.overridesSecurity = overridesSecurity;
     }
 
     /**
@@ -129,6 +131,8 @@ public class PluginInfo implements Writeable, ToXContentObject {
              */
             in.readBoolean();
         }
+        // todo fix bwc
+        this.overridesSecurity = in.readOptionalBoolean();
     }
 
     @Override
@@ -152,6 +156,8 @@ public class PluginInfo implements Writeable, ToXContentObject {
              */
             out.writeBoolean(false);
         }
+        // todo fix bwc
+        out.writeOptionalBoolean(overridesSecurity);
     }
 
     /**
@@ -215,6 +221,12 @@ public class PluginInfo implements Writeable, ToXContentObject {
             extendedPlugins = Arrays.asList(Strings.delimitedListToStringArray(extendedString, ","));
         }
 
+        boolean overridesSecurity = false;
+        final String hasOverridesSecurityValue = propsMap.remove("overrides.security");
+        if(hasOverridesSecurityValue != null && hasOverridesSecurityValue.equals("true")) {
+            overridesSecurity = true;
+        }
+
         final String hasNativeControllerValue = propsMap.remove("has.native.controller");
         final boolean hasNativeController;
         if (hasNativeControllerValue == null) {
@@ -248,7 +260,7 @@ public class PluginInfo implements Writeable, ToXContentObject {
         }
 
         return new PluginInfo(name, description, version, esVersion, javaVersionString,
-                              classname, extendedPlugins, hasNativeController);
+                              classname, extendedPlugins, hasNativeController, overridesSecurity);
     }
 
     /**
@@ -323,6 +335,15 @@ public class PluginInfo implements Writeable, ToXContentObject {
         return hasNativeController;
     }
 
+    /**
+     * Returns the security plugin that overrides default security
+     *
+     * @return security plugin name overriding default security
+     */
+    public boolean getOverridesSecurity() {
+        return overridesSecurity;
+    }
+
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startObject();
@@ -335,6 +356,7 @@ public class PluginInfo implements Writeable, ToXContentObject {
             builder.field("classname", classname);
             builder.field("extended_plugins", extendedPlugins);
             builder.field("has_native_controller", hasNativeController);
+            builder.field("overrides_security", overridesSecurity);
         }
         builder.endObject();
 
@@ -375,7 +397,8 @@ public class PluginInfo implements Writeable, ToXContentObject {
             .append(prefix).append("Java Version: ").append(javaVersion).append("\n")
             .append(prefix).append("Native Controller: ").append(hasNativeController).append("\n")
             .append(prefix).append("Extended Plugins: ").append(extendedPlugins).append("\n")
-            .append(prefix).append(" * Classname: ").append(classname);
+            .append(prefix).append(" * Classname: ").append(classname).append("\n")
+            .append(prefix).append("Overrides default security: ").append(overridesSecurity);
         return information.toString();
     }
 }
