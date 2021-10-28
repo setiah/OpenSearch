@@ -27,6 +27,11 @@
   <suppress files="libs" checks="." />
   <!-- Excludes checkstyle run on modules module -->
   <suppress files="modules" checks="." />
+  <!-- Excludes checkstyle run on plugins module -->
+  <suppress files="plugins[/\\]analysis-icu" checks="." />
+  <suppress files="plugins[/\\]mapper-annotated-text" checks="." />
+  <suppress files="plugins[/\\]mapper-murmur3" checks="." />
+  <suppress files="plugins[/\\]mapper-size" checks="." />
 
   <!--
     Truly temporary suppressions suppression of snippets included in
